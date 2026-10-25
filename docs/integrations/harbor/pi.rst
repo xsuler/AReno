@@ -6,6 +6,15 @@ AReno's GSPO trainer. Use it as a working example of
 :doc:`/integrations/harbor` and :doc:`tasks`: change the loader or grading
 rubric for your data, or replace the harness while retaining the task adapter.
 
+.. figure:: /_static/integrations/pi-svg-training.webp
+   :alt: Pi requests actions from the AReno policy, writes an SVG and renders it with Chromium. A controller-side VLM receives the original source prompt, reference PNG and rendered candidate. Its continuous reward feeds GSPO updates to the policy.
+   :width: 100%
+   :align: center
+   :class: integration-diagram
+
+   The policy runs the agent; a separate VLM judges the rendered SVG against
+   the original prompt and reference. Judge credentials stay in the controller.
+
 Prepare the runtime
 -------------------
 
@@ -225,6 +234,15 @@ matching directory contains Harbor logs and grading artifacts, including:
 * ``agent/pi.txt`` and Pi session logs: raw tool arguments and observations.
 * ``artifacts/grading.json``: rendering evidence and rubric details.
 * ``artifacts/submission/icon.svg``: the delivered submission, when captured.
+
+.. figure:: /_static/integrations/pi-artifacts.webp
+   :alt: Persistent results contain an attempt summary with the exact model trace and a matching directory of agent logs, optional ATIF, grading evidence and the submitted SVG. Temporary staging is removed after cleanup.
+   :width: 100%
+   :align: center
+   :class: integration-diagram
+
+   Read the summary for training evidence and the trial artifacts for debugging.
+   Native exports and captured files depend on the agent and task outcome.
 
 Check ``valid`` and ``error`` before interpreting a reward. For zero scores,
 inspect ``page_valid``, ``zero_reasons`` and ``verify_timed_out``. A missing

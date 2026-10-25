@@ -9,6 +9,14 @@ Each guide covers the external dependency's requirements, configuration,
 supported interfaces and usage examples. Follow the guide for the dependency
 you want to connect.
 
+.. figure:: /_static/integrations/integration-overview.webp
+   :alt: AReno connects to external libraries, frameworks and tools. Integration guides cover requirements, configuration, interfaces and usage.
+   :width: 100%
+   :align: center
+   :class: integration-diagram
+
+   Each guide explains how an external dependency fits into AReno and how to use it.
+
 Available integrations
 -----------------------
 

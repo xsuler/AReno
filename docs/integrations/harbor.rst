@@ -6,6 +6,15 @@ decides when the task is finished. This guide connects that loop to AReno
 through Harbor. You will select or implement a Harbor agent, register a
 harness configuration and expose the three hooks used by ``areno train``.
 
+.. figure:: /_static/integrations/harbor-architecture.webp
+   :alt: A Harbor agent sends policy requests through a per-sample ModelProxy to AReno and executes tools in its environment. The task adapter prepares and grades the workspace; AReno trains on the exact model trace and scalar reward.
+   :width: 100%
+   :align: center
+   :class: integration-diagram
+
+   Harbor owns agent execution and environments; the task adapter supplies the
+   reward, and AReno owns policy inference and optimization.
+
 .. toctree::
    :maxdepth: 1
    :titlesonly:
@@ -301,14 +310,6 @@ environment configuration and authenticated model proxy, then starts a native
 Harbor ``Trial``. The task adapter prepares the workspace on ``AGENT_START``
 and grades it on ``AGENT_END``. Harbor's built-in verifier is disabled;
 AReno's reward hook reads the task adapter's scalar result.
-
-.. code-block:: text
-
-   loader -> task records -> HarnessRunner -> Harbor Trial -> agent -> tools
-                                  ^                            |
-                                  +-- sample model proxy <-----+
-                                      -> AReno policy
-   task adapter -> reward -> AReno optimizer -> checkpoint
 
 The proxy records AReno's exact input/output token IDs and rollout log
 probabilities. Training turns come from this trace, not from re-tokenizing

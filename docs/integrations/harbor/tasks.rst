@@ -7,6 +7,15 @@ require changing your dataset loader or grader. This guide completes the
 ``my-shell`` integration from :doc:`/integrations/harbor`, then shows how to
 substitute a custom data source and reward.
 
+.. figure:: /_static/integrations/task-lifecycle.webp
+   :alt: A custom reader normalizes source rows into task records. Each sample copies and normalizes a record, prepares its workspace, runs the agent and tools, verifies the result, persists the reward and trace, then cleans up.
+   :width: 100%
+   :align: center
+   :class: integration-diagram
+
+   Source loading and task execution are separate extension points. The same
+   adapter can serve different readers and harnesses.
+
 1. Define the task record
 -------------------------
 
@@ -228,6 +237,15 @@ An environment, proxy or judge exception invalidates the sample through
 ``AgentTrajectory.invalid_items`` and removes its reward. The current
 verification-budget timeout path instead returns reward zero and
 ``verify_timed_out=True``; inspect that flag separately from task quality.
+
+.. figure:: /_static/integrations/task-outcomes.webp
+   :alt: With a complete model trace, a returned task grade is valid even when zero. Infrastructure exceptions invalidate the sample. Verification-budget timeouts return zero with verify_timed_out set. Agent exit and budget failures depend on require_agent_success.
+   :width: 100%
+   :align: center
+   :class: integration-diagram
+
+   Distinguish an incorrect submission from a broken execution or grading
+   pipeline before interpreting zero rewards.
 
 Before training, exercise correct, partially correct and incorrect results,
 then a broken grader. Confirm that the first three produce the intended
