@@ -135,7 +135,11 @@ def _sample(
     fallback = torch.argmax(scores, dim=-1)
     probs = torch.softmax(scores / params.temperature, dim=-1)
     probs = _sanitize_probs(probs, fallback)
-    if (params.top_k > 0 or params.top_p < 1.0) and 0.0 <= params.top_p <= 1.0 and _pivot_supported(probs):
+    if (
+        (params.top_k > 0 or params.top_p < 1.0)
+        and 0.0 <= params.top_p <= 1.0
+        and _pivot_supported(probs, params.top_k)
+    ):
         from areno.accel.kernels.sampling import truncate_probs
 
         filtered = truncate_probs(probs, params.top_k, params.top_p)
@@ -159,7 +163,7 @@ def _sample(
     return torch.multinomial(probs, 1, generator=generator).squeeze(-1)
 
 
-def _pivot_supported(probs: torch.Tensor) -> bool:
+def _pivot_supported(probs: torch.Tensor, top_k: int = 0) -> bool:
     """Metadata-only dispatch; CPU/ROCm/large or strided inputs use reference."""
     import importlib.util
 
@@ -171,6 +175,7 @@ def _pivot_supported(probs: torch.Tensor) -> bool:
         and probs.is_contiguous()
         and probs.shape[0] > 0
         and 1 < probs.shape[1] <= 262144
+        and (probs.shape[1] <= 32768 or 0 < top_k <= 256)
         and importlib.util.find_spec("triton") is not None
     )
 
