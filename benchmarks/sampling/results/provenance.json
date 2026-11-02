@@ -1,0 +1,13 @@
+{
+  "baseline_commit": "9188ec1",
+  "implementation_commit": "f1d73b1",
+  "ablation_harness_commit": "badf3d6",
+  "validated_in": "tmux 18",
+  "source_sha256": {
+    "areno/accel/kernels/sampling.py": "32f8a9d3f504fa4b26a1a62d44b59799caed41f9c93abba4f70dd3795041c25d",
+    "areno/engine/data/sampling.py": "cb2509de4acaf73cff0db0e5ed816e6de857427927946525b320c5493bb5e9ff",
+    "areno/engine/runtime/speculative.py": "73a7eba15f7600061ac9cf48081e3b64c297e23695b529c560ecb53c999964cf"
+  },
+  "initial_committed_archive_sha256": "90903fa81b88d8c4918acb426609cdb8b0bb4699a0a1b4a70ea5d6c1bb756cd7",
+  "dispatch_update_archive_sha256": "6bc7562f0888ed2dab83bdc6c9375f13bf0879ab93b95e17d290eb6368ee8a38"
+}

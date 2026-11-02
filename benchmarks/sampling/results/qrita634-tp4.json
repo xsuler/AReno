@@ -1,0 +1,32 @@
+[
+  {
+    "tp": 4,
+    "graph_verified": true,
+    "dtype": "torch.float32",
+    "batch": 8,
+    "vocab": 131072,
+    "all_gather_ms": 0.08362175941467286,
+    "max_logprob_abs_diff": 9.81894608287348e-07,
+    "mean_logprob_abs_diff": 3.748916778123501e-07
+  },
+  {
+    "tp": 4,
+    "graph_verified": true,
+    "dtype": "torch.float16",
+    "batch": 8,
+    "vocab": 131072,
+    "all_gather_ms": 0.07475520133972167,
+    "max_logprob_abs_diff": 7.823696819286852e-07,
+    "mean_logprob_abs_diff": 3.589302195461386e-07
+  },
+  {
+    "tp": 4,
+    "graph_verified": true,
+    "dtype": "torch.bfloat16",
+    "batch": 8,
+    "vocab": 131072,
+    "all_gather_ms": 0.07786975860595703,
+    "max_logprob_abs_diff": 4.5682059024443333e-07,
+    "mean_logprob_abs_diff": 2.6786715379145676e-07
+  }
+]

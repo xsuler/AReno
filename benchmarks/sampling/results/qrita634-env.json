@@ -1,0 +1,9 @@
+{
+  "torch": "2.8.0a0+34c6371d24.nv25.08",
+  "cuda": "13.0",
+  "triton": "3.4.0",
+  "transformers": "4.56.2",
+  "fla": "0.5.2",
+  "gpu": "NVIDIA H20-3e",
+  "gpus": 8
+}
