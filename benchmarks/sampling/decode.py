@@ -3,6 +3,7 @@
 import argparse
 import json
 import time
+import traceback
 from pathlib import Path
 from areno import Trainer
 from areno.api import CudaConfig, SamplingParams
@@ -53,6 +54,9 @@ def main():
             results.append(record)
             Path(args.output).write_text(json.dumps(results, indent=2))
             print("DECODE634", json.dumps(record), flush=True)
+    except BaseException:
+        traceback.print_exc()
+        raise
     finally:
         trainer.end_rollout_session()
         trainer.close()
