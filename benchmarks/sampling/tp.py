@@ -56,6 +56,7 @@ def main():
         torch.cuda.synchronize()
         graph_expected = full.double().log_softmax(-1).gather(1, graph_tokens[:, None]).squeeze(-1)
         torch.testing.assert_close(graph_lp.double(), graph_expected, atol=3e-6, rtol=1e-6)
+        del graph
         # Correctness above is synchronized. Measure only the collective here.
         for _ in range(10):
             all_gather_last_dim(shard)
