@@ -2,6 +2,7 @@
 import argparse
 import json
 import platform
+import importlib.util
 import subprocess
 import time
 from pathlib import Path
@@ -41,7 +42,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
-    results = {'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+    spec = importlib.util.spec_from_file_location('sampling_baseline', Path(__file__).with_name('baseline.py'))
+    baseline = importlib.util.module_from_spec(spec); spec.loader.exec_module(baseline)
+    results = {'commit': Path('SOURCE_COMMIT').read_text().strip() if Path('SOURCE_COMMIT').exists() else subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
                'gpu': torch.cuda.get_device_name(), 'torch': torch.__version__,
                'platform': platform.platform(), 'rows': []}
     for batch in (1, 8, 32):
@@ -53,6 +56,10 @@ def main():
                              'pivot': lambda: torch.multinomial(truncate_probs(p, k, top_p), 1) if filtered else torch.multinomial(p, 1)}
                 record = {'batch': batch, 'vocab': vocab, 'k': k, 'p': top_p}
                 for name, fn in functions.items(): record[name] = measure(fn)
+                logits = p.log()
+                params = SamplingParams(temperature=.8, top_k=k, top_p=top_p)
+                record['full_baseline'] = measure(lambda: baseline._sample(logits, params, logits.device))
+                record['full_pivot'] = measure(lambda: sampling._sample(logits, params, logits.device))
                 if filtered:
                     record['filter_only'] = measure(lambda: truncate_probs(p, k, top_p))
                 results['rows'].append(record)
