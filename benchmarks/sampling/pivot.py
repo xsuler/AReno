@@ -13,13 +13,17 @@ from areno.accel.kernels.sampling import truncate_probs
 from areno.engine.data import SamplingParams, sampling
 
 
-def legacy(p, k, top_p):
+def legacy_filter(p, k, top_p):
     v, ids = p.sort(descending=True)
     if k > 0:
         v[:, min(k, p.shape[1]) :] = 0
     if top_p < 1:
         v[(v.cumsum(-1) - v) > top_p] = 0
-    v = sampling._sanitize_sorted_probs(v)
+    return sampling._sanitize_sorted_probs(v), ids
+
+
+def legacy(p, k, top_p):
+    v, ids = legacy_filter(p, k, top_p)
     return ids.gather(-1, torch.multinomial(v, 1)).squeeze(-1)
 
 
@@ -81,6 +85,7 @@ def main():
                 record["full_pivot"] = measure(lambda: sampling._sample(logits, params, logits.device))
                 if filtered:
                     record["filter_only"] = measure(lambda: truncate_probs(p, k, top_p))
+                    record["baseline_filter_only"] = measure(lambda: legacy_filter(p, k, top_p))
                 for name, fn in functions.items():
                     graph = torch.cuda.CUDAGraph()
                     with torch.cuda.graph(graph):
