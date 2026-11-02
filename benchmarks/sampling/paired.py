@@ -9,6 +9,7 @@ import importlib.util
 import json
 import statistics
 import time
+import types
 from dataclasses import replace
 from pathlib import Path
 
@@ -20,17 +21,37 @@ from areno.engine.data import sampling
 _spec = importlib.util.spec_from_file_location("sampling_legacy", Path(__file__).with_name("baseline.py"))
 _legacy = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_legacy)
+# Counterfactual: main's filtering/RNG with only graph-safe scalar masks.
+_mask_only = types.ModuleType("sampling_mask_only")
+_mask_source = Path(__file__).with_name("baseline.py").read_text()
+for _ids in ("suppress_ids", "eos_ids"):
+    _old = f'scores[:, torch.tensor({_ids}, device=scores.device, dtype=torch.long)] = float("-inf")'
+    _new = f'for token_id in {_ids}:\n            scores[:, token_id] = float("-inf")'
+    _mask_source = _mask_source.replace(_old, _new)
+exec(compile(_mask_source, str(Path(__file__).with_name("baseline.py")), "exec"), _mask_only.__dict__)
+_seen_modes = set()
 _original_sample = sampling._sample
 _original_generator = sampling._make_sample_generator
 
 
 def sample(logits, params, device, **kwargs):
-    fn = _legacy._sample if params.seed == 635 else _original_sample
+    if params.seed not in _seen_modes:
+        print(
+            "SAMPLER_MODE634",
+            params.seed,
+            "suppression",
+            params.suppress_token_ids,
+            "shape",
+            tuple(logits.shape),
+            flush=True,
+        )
+        _seen_modes.add(params.seed)
+    fn = {635: _legacy._sample, 636: _mask_only._sample}.get(params.seed, _original_sample)
     return fn(logits, params, device, **kwargs)
 
 
 def generator(params, device):
-    return _original_generator(replace(params, seed=634) if params.seed == 635 else params, device)
+    return _original_generator(replace(params, seed=634) if params.seed in (635, 636) else params, device)
 
 
 sampling._sample = sample
@@ -43,7 +64,9 @@ def main():
     parser.add_argument("--model", required=True)
     parser.add_argument("--tp", type=int, default=2)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--mask-ablation", action="store_true")
     args = parser.parse_args()
+    modes = ("baseline", "mask_only", "pivot") if args.mask_ablation else ("baseline", "pivot")
     trainer = Trainer(
         args.tp,
         args.model,
@@ -57,18 +80,19 @@ def main():
     trainer.begin_rollout_session()
     records = []
     try:
-        for k, p in ((50, 0.9), (0, 0.9), (0, 1.0)):
+        configs = ((50, 0.9), (0, 1.0)) if args.mask_ablation else ((50, 0.9), (0, 0.9), (0, 1.0))
+        for k, p in configs:
             record = {"k": k, "p": p, "tp": args.tp, "batch": 8, "times": {}}
             last = {}
             for length in (16, 64):
-                times = {"baseline": [], "pivot": []}
+                times = {mode: [] for mode in modes}
 
                 def run(mode):
                     params = SamplingParams(
                         temperature=0.8,
                         top_k=k,
                         top_p=p,
-                        seed=635 if mode == "baseline" else 634,
+                        seed={"baseline": 635, "mask_only": 636, "pivot": 634}[mode],
                         max_new_tokens=length,
                         ignore_eos=True,
                     )
@@ -81,16 +105,18 @@ def main():
                     return elapsed
 
                 for _ in range(3):
-                    run("baseline")
-                    run("pivot")
+                    for mode in modes:
+                        run(mode)
                 for iteration in range(5):
-                    order = ("baseline", "pivot") if iteration % 2 == 0 else ("pivot", "baseline")
+                    order = modes if iteration % 2 == 0 else tuple(reversed(modes))
                     for mode in order:
                         times[mode].append(run(mode))
                 if k == 0 and p == 1.0:
-                    assert last["baseline"] == last["pivot"], "unfiltered control token streams differ"
+                    assert all(last["baseline"] == last[mode] for mode in modes), (
+                        "unfiltered control token streams differ"
+                    )
                 record["times"][str(length)] = times
-            for mode in ("baseline", "pivot"):
+            for mode in modes:
                 tpot = (
                     statistics.median(record["times"]["64"][mode]) - statistics.median(record["times"]["16"][mode])
                 ) / 48
