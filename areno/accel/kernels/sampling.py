@@ -54,7 +54,7 @@ def truncate_probs(probs, top_k, top_p):
     import torch
 
     batch, vocab = probs.shape
-    if vocab > 32768 and 0 < top_k <= 256:
+    if vocab > 4096 and 0 < top_k <= 256:
         # The global top-k is contained in the union of tile-local top-k.
         # Compact in token-id order, retaining original (not renormalized)
         # probability mass for the subsequent nucleus cutoff.

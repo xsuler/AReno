@@ -176,7 +176,7 @@ def _pivot_supported(probs: torch.Tensor, top_k: int = 0) -> bool:
         and probs.is_contiguous()
         and probs.shape[0] > 0
         and 1 < probs.shape[1] <= 262144
-        and (probs.shape[1] <= 32768 or 0 < top_k <= 256)
+        and (probs.shape[1] <= 4096 or 0 < top_k <= 256)
         and importlib.util.find_spec("triton") is not None
     )
 
