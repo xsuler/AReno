@@ -47,7 +47,8 @@ def _sample_greedy_sharded(
     suppress_ids = _local_token_ids(suppress_token_ids, ctx.rank * local_vocab, local_vocab)
     if suppress_ids:
         scores = scores.clone()
-        scores[:, torch.tensor(suppress_ids, device=scores.device, dtype=torch.long)] = float("-inf")
+        for token_id in suppress_ids:
+            scores[:, token_id] = float("-inf")
     if eos_ids and sample_step < min_new_tokens:
         # Mask EOS tokens whose ids fall inside this rank's shard so the global
         # argmax cannot pick them before we have produced `min_new_tokens`.
@@ -122,9 +123,11 @@ def _sample(
     if suppress_ids or (eos_ids and sample_step < params.min_new_tokens):
         scores = scores.clone()
     if suppress_ids:
-        scores[:, torch.tensor(suppress_ids, device=scores.device, dtype=torch.long)] = float("-inf")
+        for token_id in suppress_ids:
+            scores[:, token_id] = float("-inf")
     if eos_ids and sample_step < params.min_new_tokens:
-        scores[:, torch.tensor(eos_ids, device=scores.device, dtype=torch.long)] = float("-inf")
+        for token_id in eos_ids:
+            scores[:, token_id] = float("-inf")
     if params.temperature == 0.0:
         return torch.argmax(scores, dim=-1)
     # Compute a deterministic fallback in case stochastic sampling sees a row
@@ -132,7 +135,7 @@ def _sample(
     fallback = torch.argmax(scores, dim=-1)
     probs = torch.softmax(scores / params.temperature, dim=-1)
     probs = _sanitize_probs(probs, fallback)
-    if (params.top_k > 0 or params.top_p < 1.0) and _pivot_supported(probs):
+    if (params.top_k > 0 or params.top_p < 1.0) and 0.0 <= params.top_p <= 1.0 and _pivot_supported(probs):
         from areno.accel.kernels.sampling import truncate_probs
 
         filtered = truncate_probs(probs, params.top_k, params.top_p)
@@ -148,8 +151,8 @@ def _sample(
             k = min(params.top_k, vocab)
             probs_sort[:, k:] = 0.0
         if params.top_p < 1.0:
-            probs_sum = torch.cumsum(probs_sort, dim=-1)
-            probs_sort[(probs_sum - probs_sort) > params.top_p] = 0.0
+            probs_sum = torch.cumsum(probs_sort.double(), dim=-1)
+            probs_sort[(probs_sum - probs_sort.double()) > params.top_p] = 0.0
         probs_sort = _sanitize_sorted_probs(probs_sort)
         sampled = torch.multinomial(probs_sort, 1, generator=generator)
         return probs_idx.gather(-1, sampled).squeeze(-1)
