@@ -136,3 +136,39 @@ python benchmarks/sampling/audit.py --model "$MODEL_PATH" --tp 2 --output audit
 纯 top-p 大词表需要跨 CTA 的 mass reduction/weighted radix selection，避免在单 CTA 内完成全词表 FP64 归约。batch=1 的收益也需要单独优化，不能外推 batch=32 的加速。当前仍有 FP32 预处理、dense output scatter、multinomial 和完整 TP all-gather；可分别评估融合和分布式采样，但不属于此次已经实现的收益。
 
 验证结束后 GPU 测试进程已退出。baseline/candidate 正常结束时均观测到 Python resource_tracker 的一个 semaphore 清理警告，未将其解释为本次采样内核错误，也未扩大修改引擎进程生命周期。
+
+## tmux 19：Qwen3-4B 追加验证（2026-11-02）
+
+使用用户提供的本地 Qwen3-4B，在 tmux 19 复验同一个实现（本地提交 `f51cc41` 对应的生产源码）；未修改采样算法、模型实现或安装依赖。该会话连接同一台8×H20-3e，模型为BF16、36层、vocab=151936。远端 kernel/sampling.py 的 SHA-256 与前次验证及本地代码一致，实际环境版本保存在本节原始数据目录的 `environment.json`。
+
+回归测试再次 **86 passed**。真实 eager rollout 的独立 FP64 log-softmax 审计和带 model decode graphs 的配对性能任务，TP=1/2 均以exit code 0结束。全部5个任务的命令、退出码和耗时见 `status.json`。
+
+| 实际模型 logprob 审计 | 每个 rank 检查的 token 数 | max abs diff | mean abs diff |
+|---|---:|---:|---:|
+| TP=1 | 8 | 1.298e-06 | 6.469e-07 |
+| TP=2 | 8 | 6.821e-07 | 3.694e-07 |
+
+TP=2两个rank的结果相同。这里比较的是实际模型原始 logits 对 selected-token 的独立 dense FP64 log-softmax，不是截断后的 sampling logprob；容差仍为 `atol=3e-6, rtol=1e-6`，没有为Qwen放宽。
+
+沿用三路消融：main / 仅改graph-safe suppression / 完整pivot；batch=8、temperature=.8、top-k=50、top-p=.9、输出16/64 tokens，每个配置预热3轮、测5轮，交替运行三种模式并取中位数差估计TPOT。三路使用相同generator seed。模型decode CUDA graphs已启用，`compile_model=False`，加载、capture和预热不计时。worker确认logits shape=(8,151936)，suppression=(151643,)。
+
+| TP | main TPOT | 仅改mask TPOT | 完整pivot TPOT | 整体TPOT降低 | pivot额外TPOT降低 | 吞吐 main→pivot (token/s) |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 7.1430 ms | 6.8685 ms | 6.5708 ms | 8.01% | 4.33% | 1120.0 → 1217.5 |
+| 2 | 6.6892 ms | 6.1425 ms | 5.8582 ms | 12.42% | 4.63% | 1196.0 → 1365.6 |
+
+整体吞吐分别提升 **8.71%（TP=1）/14.19%（TP=2）**；这包含mask去除CPU→GPU token-ID tensor拷贝的收益，不能全部归给pivot。相对mask-only，pivot额外降低 **0.298 ms/0.284 ms**，对应 **4.33%/4.63%**。
+
+未过滤control（k=0,p=1）验证三路的生成token完全一致，assert通过；完整candidate相对mask-only的TPOT差为-0.026 ms（TP=1）和+0.108 ms（TP=2）。因此小于约0.1 ms的变化需谨慎解读；这些是有限次数的观测，没有声称统计置信区间或跨模型统一倍数。
+
+原始输出、逐轮时间、每个rank的审计数据与汇总位于 [`results/qrita634-qwen-20261102/`](results/qrita634-qwen-20261102/)。本轮没有重测纯top-p-only的大词表fallback加速，其适用范围与前述限制保持不变。全部测试进程已退出。
+
+复现：在已经构建的候选checkout中设置 `MODEL_PATH` 指向本地Qwen3-4B，对 `tp=1,2` 分别执行：
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1 OMP_NUM_THREADS=1 PYTHONPATH="$PWD" \
+  python benchmarks/sampling/audit.py --model "$MODEL_PATH" --tp 2 --output audit-qwen-tp2
+CUDA_VISIBLE_DEVICES=0,1 OMP_NUM_THREADS=1 PYTHONPATH="$PWD" \
+  python benchmarks/sampling/paired.py --model "$MODEL_PATH" --tp 2 \
+  --mask-ablation --output paired-qwen-tp2.json
+```

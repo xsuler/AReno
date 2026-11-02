@@ -1,0 +1,90 @@
+[
+  {
+    "name": "tests",
+    "argv": [
+      "python",
+      "-m",
+      "pytest",
+      "tests/test_sampling_cpu.py",
+      "tests/test_logprobs_cpu.py",
+      "tests/test_speculative_cpu.py",
+      "tests/test_speculative_rollout_cpu.py",
+      "tests/test_pivot_sampling_cuda.py",
+      "tests/test_logprobs_cuda.py",
+      "-q"
+    ],
+    "devices": "0",
+    "returncode": 0,
+    "seconds": 8.77690601348877
+  },
+  {
+    "name": "audit-tp1",
+    "argv": [
+      "python",
+      "-u",
+      "benchmarks/sampling/audit.py",
+      "--model",
+      "/home/admin/Qwen3-4B",
+      "--tp",
+      "1",
+      "--output",
+      "/tmp/qrita634-qwen-20261102/audit-tp1"
+    ],
+    "devices": "0",
+    "returncode": 0,
+    "seconds": 17.340094327926636
+  },
+  {
+    "name": "audit-tp2",
+    "argv": [
+      "python",
+      "-u",
+      "benchmarks/sampling/audit.py",
+      "--model",
+      "/home/admin/Qwen3-4B",
+      "--tp",
+      "2",
+      "--output",
+      "/tmp/qrita634-qwen-20261102/audit-tp2"
+    ],
+    "devices": "0,1",
+    "returncode": 0,
+    "seconds": 14.43580675125122
+  },
+  {
+    "name": "paired-tp1",
+    "argv": [
+      "python",
+      "-u",
+      "benchmarks/sampling/paired.py",
+      "--model",
+      "/home/admin/Qwen3-4B",
+      "--tp",
+      "1",
+      "--mask-ablation",
+      "--output",
+      "/tmp/qrita634-qwen-20261102/paired-tp1.json"
+    ],
+    "devices": "0",
+    "returncode": 0,
+    "seconds": 44.93030095100403
+  },
+  {
+    "name": "paired-tp2",
+    "argv": [
+      "python",
+      "-u",
+      "benchmarks/sampling/paired.py",
+      "--model",
+      "/home/admin/Qwen3-4B",
+      "--tp",
+      "2",
+      "--mask-ablation",
+      "--output",
+      "/tmp/qrita634-qwen-20261102/paired-tp2.json"
+    ],
+    "devices": "0,1",
+    "returncode": 0,
+    "seconds": 53.04401731491089
+  }
+]

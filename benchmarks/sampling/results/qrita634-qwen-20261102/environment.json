@@ -1,0 +1,21 @@
+{
+  "torch": "2.8.0a0+34c6371d24.nv25.08",
+  "cuda": "13.0",
+  "triton": "3.4.0",
+  "transformers": "4.56.2",
+  "python": "3.12.3",
+  "gpu": "NVIDIA H20-3e",
+  "gpus": 8,
+  "model": "Qwen3-4B",
+  "config": {
+    "model_type": "qwen3",
+    "vocab_size": 151936,
+    "torch_dtype": "bfloat16",
+    "num_hidden_layers": 36
+  },
+  "config_sha256": "8ba006f74fecfaaeb392872a60f4a480e7ec9860153d2e1b769ec81f9a147f8a",
+  "source_sha256": {
+    "areno/accel/kernels/sampling.py": "32f8a9d3f504fa4b26a1a62d44b59799caed41f9c93abba4f70dd3795041c25d",
+    "areno/engine/data/sampling.py": "cb2509de4acaf73cff0db0e5ed816e6de857427927946525b320c5493bb5e9ff"
+  }
+}
