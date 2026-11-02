@@ -132,12 +132,17 @@ def _sample(
     fallback = torch.argmax(scores, dim=-1)
     probs = torch.softmax(scores / params.temperature, dim=-1)
     probs = _sanitize_probs(probs, fallback)
+    if (params.top_k > 0 or params.top_p < 1.0) and _pivot_supported(probs):
+        from areno.accel.kernels.sampling import truncate_probs
+
+        filtered = truncate_probs(probs, params.top_k, params.top_p)
+        return torch.multinomial(filtered, 1, generator=generator).squeeze(-1)
     if params.top_k > 0 or params.top_p < 1.0:
         # Sort then zero out tokens that fall outside top-k or top-p so the
         # remaining distribution is exactly the truncated one. The mask is
         # `prefix sum (excluding self) > top_p`, which keeps the smallest
         # prefix whose sum first exceeds `top_p`.
-        probs_sort, probs_idx = probs.sort(dim=-1, descending=True)
+        probs_sort, probs_idx = probs.sort(dim=-1, descending=True, stable=True)
         if params.top_k > 0:
             vocab = probs.shape[-1]
             k = min(params.top_k, vocab)
@@ -149,6 +154,22 @@ def _sample(
         sampled = torch.multinomial(probs_sort, 1, generator=generator)
         return probs_idx.gather(-1, sampled).squeeze(-1)
     return torch.multinomial(probs, 1, generator=generator).squeeze(-1)
+
+
+def _pivot_supported(probs: torch.Tensor) -> bool:
+    """Metadata-only dispatch; CPU/ROCm/large or strided inputs use reference."""
+    import importlib.util
+
+    return (
+        probs.device.type == "cuda"
+        and torch.version.hip is None
+        and probs.dtype == torch.float32
+        and probs.ndim == 2
+        and probs.is_contiguous()
+        and probs.shape[0] > 0
+        and 1 < probs.shape[1] <= 262144
+        and importlib.util.find_spec("triton") is not None
+    )
 
 
 def _policy_token_logprobs(

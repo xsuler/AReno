@@ -84,3 +84,16 @@ class SamplingTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_pivot_cpu_fallback():
+    assert not sampling._pivot_supported(torch.ones(2, 32))
+
+
+def test_combined_uses_original_mass_cpu():
+    # top-k mass=.7 < top-p=.8: both tokens survive (no renormalization).
+    logits = torch.tensor([[.4, .3, .2, .1]]).log()
+    params = SamplingParams(top_k=2, top_p=.8)
+    gen = torch.Generator().manual_seed(634)
+    draws = [sampling._sample(logits, params, logits.device, generator=gen).item() for _ in range(200)]
+    assert set(draws) == {0, 1}
