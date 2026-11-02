@@ -39,9 +39,10 @@ def main():
                 params = SamplingParams(
                     top_k=k, top_p=p, temperature=0.8, max_new_tokens=length, ignore_eos=True, seed=634
                 )
-                trainer.rollout_batch(prompts, 1, params)
-                samples = []
                 for _ in range(3):
+                    trainer.rollout_batch(prompts, 1, params)
+                samples = []
+                for _ in range(5):
                     start = time.perf_counter()
                     out = trainer.rollout_batch(prompts, 1, params)
                     elapsed = time.perf_counter() - start
@@ -49,7 +50,7 @@ def main():
                     samples.append(elapsed)
                 record["lengths"].append({"tokens": length, "seconds": samples})
             a, b = record["lengths"]
-            slope = (sorted(b["seconds"])[1] - sorted(a["seconds"])[1]) / 48
+            slope = (sorted(b["seconds"])[len(b["seconds"]) // 2] - sorted(a["seconds"])[len(a["seconds"]) // 2]) / 48
             record["incremental_tpot_ms"] = 1000 * slope
             record["incremental_tokens_per_second"] = args.batch / slope
             results.append(record)

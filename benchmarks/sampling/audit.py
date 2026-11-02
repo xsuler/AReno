@@ -56,12 +56,14 @@ def main():
         ),
     )
     trainer.init()
+    trainer.begin_rollout_session()
     try:
         params = SamplingParams(temperature=0.7, top_k=50, top_p=0.9, max_new_tokens=4, ignore_eos=True, seed=634)
         out = trainer.rollout_batch(["Explain why the sky is blue."] * 2, 1, params)
         assert all(len(r.sequences[0].resp_tokens) == 4 for r in out)
         print("ROLLOUT_LOGPROB_AUDIT_OK", flush=True)
     finally:
+        trainer.end_rollout_session()
         trainer.close()
 
 
