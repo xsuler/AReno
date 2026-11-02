@@ -38,6 +38,24 @@ def main():
         expected = full.double().log_softmax(-1).gather(1, tokens[:, None]).squeeze(-1)
         error = (actual.double() - expected).abs()
         torch.testing.assert_close(actual.double(), expected, atol=3e-6, rtol=1e-6)
+        stream = torch.cuda.Stream()
+        stream.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(stream):
+            for _ in range(3):
+                sampling._sample_full_vocab(
+                    shard, params, full.shape[1], world, full.device, generator=None, eos_token_id=None, sample_step=0
+                )
+        torch.cuda.current_stream().wait_stream(stream)
+        graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(graph):
+            graph_tokens = sampling._sample_full_vocab(
+                shard, params, full.shape[1], world, full.device, generator=None, eos_token_id=None, sample_step=0
+            )
+            graph_lp = sampling._policy_token_logprobs(shard, graph_tokens)
+        graph.replay()
+        torch.cuda.synchronize()
+        graph_expected = full.double().log_softmax(-1).gather(1, graph_tokens[:, None]).squeeze(-1)
+        torch.testing.assert_close(graph_lp.double(), graph_expected, atol=3e-6, rtol=1e-6)
         # Correctness above is synchronized. Measure only the collective here.
         for _ in range(10):
             all_gather_last_dim(shard)
@@ -51,6 +69,7 @@ def main():
         records.append(
             {
                 "tp": world,
+                "graph_verified": True,
                 "dtype": str(dtype),
                 "batch": 8,
                 "vocab": 131072,

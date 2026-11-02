@@ -81,6 +81,11 @@ def main():
                 record["full_pivot"] = measure(lambda: sampling._sample(logits, params, logits.device))
                 if filtered:
                     record["filter_only"] = measure(lambda: truncate_probs(p, k, top_p))
+                for name, fn in functions.items():
+                    graph = torch.cuda.CUDAGraph()
+                    with torch.cuda.graph(graph):
+                        fn()
+                    record[name + "_graph"] = measure(graph.replay)
                 results["rows"].append(record)
                 Path(args.output).write_text(json.dumps(results, indent=2))
                 print(json.dumps(record), flush=True)

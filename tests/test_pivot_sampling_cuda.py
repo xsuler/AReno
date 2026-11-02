@@ -69,3 +69,33 @@ def test_distribution():
     draws = torch.multinomial(filtered, 100000, replacement=True)
     freq = torch.bincount(draws[0], minlength=4) / 100000
     torch.testing.assert_close(freq, reference(probs, 3, 0.5)[0], atol=0.008, rtol=0)
+
+
+@pytest.mark.parametrize("temperature", [0.01, 0.7, 2.0])
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
+def test_processed_distribution(temperature, dtype, monkeypatch):
+    logits = torch.randn(4, 32768, device="cuda", dtype=dtype)
+    logits[0].fill_(float("nan"))
+    logits[1, 0] = float("inf")
+    logits[2].fill_(0)
+    params = SamplingParams(temperature=temperature, top_k=50, top_p=0.9, suppress_token_ids=(0, 1), min_new_tokens=2)
+    scores = torch.nan_to_num(
+        logits.float(), nan=-float("inf"), posinf=torch.finfo(torch.float32).max, neginf=-float("inf")
+    )
+    scores[:, :3] = -float("inf")
+    p = torch.softmax(scores / temperature, -1)
+    p = torch.nan_to_num(p, nan=0.0)
+    total = p.sum(-1, keepdim=True)
+    fallback = torch.nn.functional.one_hot(scores.argmax(-1), p.shape[-1]).float()
+    p = torch.where(total > 0, p / total.clamp_min(torch.finfo(p.dtype).tiny), fallback)
+    expected = reference(p, 50, 0.9)
+    seen = []
+
+    def draw(probabilities, *args, **kwargs):
+        seen.append(probabilities)
+        return probabilities.argmax(-1, keepdim=True)
+
+    monkeypatch.setattr(torch, "multinomial", draw)
+    sampling._sample(logits, params, logits.device, eos_token_id=2)
+    assert torch.equal(seen[0] > 0, expected > 0)
+    torch.testing.assert_close(seen[0], expected, atol=2e-7, rtol=2e-5)

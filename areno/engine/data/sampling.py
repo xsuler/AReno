@@ -166,9 +166,11 @@ def _sample(
 def _pivot_supported(probs: torch.Tensor, top_k: int = 0) -> bool:
     """Metadata-only dispatch; CPU/ROCm/large or strided inputs use reference."""
     import importlib.util
+    import os
 
     return (
-        probs.device.type == "cuda"
+        os.environ.get("ARENO_SAMPLING_BACKEND", "auto") == "auto"
+        and probs.device.type == "cuda"
         and torch.version.hip is None
         and probs.dtype == torch.float32
         and probs.ndim == 2
