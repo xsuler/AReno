@@ -1,14 +1,14 @@
 """Run from the repo: python benchmarks/sampling/pivot.py --output results.json."""
 
 import argparse
+import importlib.util
 import json
 import platform
-import importlib.util
 import subprocess
-import time
 from pathlib import Path
 
 import torch
+
 from areno.accel.kernels.sampling import truncate_probs
 from areno.engine.data import SamplingParams, sampling
 

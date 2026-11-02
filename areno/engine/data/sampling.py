@@ -47,8 +47,7 @@ def _sample_greedy_sharded(
     suppress_ids = _local_token_ids(suppress_token_ids, ctx.rank * local_vocab, local_vocab)
     if suppress_ids:
         scores = scores.clone()
-        for token_id in suppress_ids:
-            scores[:, token_id] = float("-inf")
+        scores[:, torch.tensor(suppress_ids, device=scores.device, dtype=torch.long)] = float("-inf")
     if eos_ids and sample_step < min_new_tokens:
         # Mask EOS tokens whose ids fall inside this rank's shard so the global
         # argmax cannot pick them before we have produced `min_new_tokens`.
